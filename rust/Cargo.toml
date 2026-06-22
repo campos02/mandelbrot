@@ -1,0 +1,18 @@
+[package]
+name = "mandelbrot_rust"
+version = "0.1.0"
+edition = "2024"
+
+# This will instruct Cargo to create a static
+# library which CMake can link against
+[lib]
+crate-type = ["staticlib"]
+
+[dependencies]
+cxx = "1.0.95"
+cxx-qt = "0.8"
+cxx-qt-lib = { version="0.8", features = ["qt_gui"] }
+
+[build-dependencies]
+# The link_qt_object_files feature is required for statically linking Qt 6.
+cxx-qt-build = { version = "0.8", features = [ "link_qt_object_files" ] }
