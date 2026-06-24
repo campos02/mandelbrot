@@ -1,5 +1,7 @@
 use crate::qimage::{QImage, QImageFormat};
+use cxx_qt::Threading;
 use cxx_qt_lib::QString;
+use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -7,8 +9,10 @@ use std::sync::{Arc, Mutex};
 pub mod qobject {
     unsafe extern "C++" {
         include!("cxx-qt-lib/qstring.h");
-        /// An alias to the QString type
         type QString = cxx_qt_lib::QString;
+
+        include!("cxx-qt-lib/qimage.h");
+        type QImage = crate::qimage::QImage;
     }
 
     extern "RustQt" {
@@ -16,8 +20,12 @@ pub mod qobject {
         #[namespace = "render_thread"]
         type RenderThread = super::RenderThreadRust;
 
+        #[qsignal]
+        #[cxx_name = "renderedImage"]
+        fn rendered_image(self: Pin<&mut RenderThread>, image: &QImage, scale_factor: f64);
+
         fn render(
-            &self,
+            self: Pin<&mut RenderThread>,
             center_x: f64,
             center_y: f64,
             scale_factor: f64,
@@ -113,7 +121,7 @@ impl RenderThreadRust {
 
 impl qobject::RenderThread {
     pub fn render(
-        &self,
+        self: Pin<&mut qobject::RenderThread>,
         center_x: f64,
         center_y: f64,
         scale_factor: f64,
@@ -143,13 +151,13 @@ impl qobject::RenderThread {
         }
     }
 
-    fn run(&self) {
+    fn run(self: Pin<&mut qobject::RenderThread>) {
         let running = self.running.clone();
         let render_info = self.render_info.clone();
         let color_map = self.color_map.clone();
         let restart = self.restart.clone();
         let abort = self.abort.clone();
-        //let qthread = self.qthread();
+        let qt_thread = self.qt_thread();
 
         std::thread::spawn(move || {
             running.store(true, Ordering::SeqCst);
@@ -255,8 +263,13 @@ impl qobject::RenderThread {
                                 "Pass {} / {NUM_PASSES}, max iterations: {max_iterations}",
                                 pass + 1
                             );
+
                             image.set_text(&QString::from("info"), &QString::from(&message));
-                            todo!("Emit signal");
+                            let image = image.clone();
+
+                            let _ = qt_thread.queue(move |render_thread| {
+                                render_thread.rendered_image(&image, scale_factor);
+                            });
                         }
 
                         pass += 1;
