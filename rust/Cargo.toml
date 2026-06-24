@@ -9,10 +9,10 @@ edition = "2024"
 crate-type = ["staticlib"]
 
 [dependencies]
-cxx = "1.0.95"
-cxx-qt = "0.8"
-cxx-qt-lib = { version="0.8", features = ["qt_gui"] }
+cxx = "1.0.194"
+cxx-qt = { git = "https://github.com/campos02/cxx-qt.git", rev = "56d32708d0643dd07875bff82988ce0ba2bdcbf4" }
+cxx-qt-lib = { git = "https://github.com/campos02/cxx-qt.git", rev = "56d32708d0643dd07875bff82988ce0ba2bdcbf4", features = ["qt_gui"] }
 
 [build-dependencies]
 # The link_qt_object_files feature is required for statically linking Qt 6.
-cxx-qt-build = { version = "0.8", features = [ "link_qt_object_files" ] }
+cxx-qt-build = { version = "0.9.0", features = [ "link_qt_object_files" ] }

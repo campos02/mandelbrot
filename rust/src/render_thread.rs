@@ -1,6 +1,5 @@
-use crate::qimage::{QImage, QImageFormat};
 use cxx_qt::Threading;
-use cxx_qt_lib::QString;
+use cxx_qt_lib::{QImage, QImageFormat, QString};
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -12,7 +11,7 @@ pub mod qobject {
         type QString = cxx_qt_lib::QString;
 
         include!("cxx-qt-lib/qimage.h");
-        type QImage = crate::qimage::QImage;
+        type QImage = cxx_qt_lib::QImage;
     }
 
     extern "RustQt" {
