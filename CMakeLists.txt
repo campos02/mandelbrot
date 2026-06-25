@@ -74,7 +74,7 @@ if(NOT CxxQt_FOUND)
     FetchContent_Declare(
         CxxQt
         GIT_REPOSITORY https://github.com/kdab/cxx-qt-cmake.git
-        GIT_TAG 0.8.0
+        GIT_TAG 0.9.0
     )
 
     FetchContent_MakeAvailable(CxxQt)
