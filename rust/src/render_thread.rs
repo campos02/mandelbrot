@@ -65,7 +65,8 @@ impl Default for RenderThreadRust {
     fn default() -> Self {
         let mut color_map = [0; COLOR_MAP_SIZE];
         for (i, color) in &mut color_map.iter_mut().enumerate() {
-            *color = Self::rbg_from_wave_length(380. + (i as f64 * 400. / COLOR_MAP_SIZE as f64))
+            *color =
+                Self::rbg_from_wave_length(380. + ((i as f64 * 400.) / (COLOR_MAP_SIZE as f64)))
         }
 
         Self {
@@ -116,7 +117,10 @@ impl RenderThreadRust {
         b = (b * s).powf(0.8);
 
         // Replicate a QRgb
-        0xFF000000 | ((r as u32 * 255) << 16) | ((g as u32 * 255) << 8) | (b as u32 * 255)
+        0xFF000000
+            | ((((r * 255.) as u32) & 0xFF) << 16)
+            | ((((g * 255.) as u32) & 0xFF) << 8)
+            | (((b * 255.) as u32) & 0xFF)
     }
 }
 
@@ -194,7 +198,7 @@ impl qobject::RenderThread {
 
                 let mut pass = 0;
                 while pass < NUM_PASSES {
-                    let max_iterations = (1 << (2 * pass + 6)) + 1;
+                    let max_iterations = (1 << (2 * pass + 6)) + 32;
                     let limit = 4;
                     let mut all_black = true;
 
@@ -207,11 +211,11 @@ impl qobject::RenderThread {
                             return;
                         }
 
-                        let scan_line = image.scan_line(y + half_height).cast::<u32>();
-                        let ay = center_y + y as f64 * scale_factor;
+                        let mut scan_line = image.scan_line(y + half_height).cast::<u32>();
+                        let ay = center_y + (y as f64 * scale_factor);
 
                         for x in -half_width..half_width {
-                            let ax = center_x + x as f64 * scale_factor;
+                            let ax = center_x + (x as f64 * scale_factor);
                             let mut a1 = ax;
                             let mut b1 = ay;
                             let mut num_iterations = 0;
@@ -219,16 +223,16 @@ impl qobject::RenderThread {
                             // do..while equivalent
                             loop {
                                 num_iterations += 1;
-                                let a2 = a1 * a1 - b1 * b1 + ax;
-                                let b2 = 2. * a1 * b1 + ay;
-                                if (a2 * a2 + b2 * b2) > limit as f64 {
+                                let a2 = (a1 * a1) - (b1 * b1) + ax;
+                                let b2 = (2. * a1 * b1) + ay;
+                                if ((a2 * a2) + (b2 * b2)) > limit as f64 {
                                     break;
                                 }
 
                                 num_iterations += 1;
-                                a1 = a2 * a1 - b2 * b2 + ax;
-                                b1 = 2. * a2 * b2 + ay;
-                                if (a2 * a2 + b2 * b2) > limit as f64 {
+                                a1 = (a2 * a2) - (b2 * b2) + ax;
+                                b1 = (2. * a2 * b2) + ay;
+                                if ((a1 * a1) + (b1 * b1)) > limit as f64 {
                                     break;
                                 }
 
@@ -242,13 +246,15 @@ impl qobject::RenderThread {
                                     color_map.lock().unwrap_or_else(|error| error.into_inner());
 
                                 unsafe {
-                                    *scan_line.add(1) = color_map[num_iterations % color_map.len()];
+                                    *scan_line = color_map[num_iterations % COLOR_MAP_SIZE];
+                                    scan_line = scan_line.add(1);
                                 }
 
                                 all_black = false;
                             } else {
                                 unsafe {
-                                    *scan_line.add(1) = 0xFF000000;
+                                    *scan_line = 0xFF000000;
+                                    scan_line = scan_line.add(1);
                                 }
                             }
                         }
