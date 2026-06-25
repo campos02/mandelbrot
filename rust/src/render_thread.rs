@@ -8,6 +8,7 @@ use std::thread::JoinHandle;
 
 #[cxx_qt::bridge]
 pub mod qobject {
+    // Tipos para fornecer ao código em Rust.
     unsafe extern "C++" {
         include!("cxx-qt-lib/qstring.h");
         type QString = cxx_qt_lib::QString;
@@ -16,6 +17,7 @@ pub mod qobject {
         type QImage = cxx_qt_lib::QImage;
     }
 
+    // Tipos, funções e sinais para fornecer ao código C++.
     extern "RustQt" {
         #[qobject]
         #[namespace = "render_thread"]
@@ -36,6 +38,7 @@ pub mod qobject {
         );
     }
 
+    // Implementa a função qt_thread().
     impl cxx_qt::Threading for RenderThread {}
 }
 
@@ -52,7 +55,7 @@ struct RenderInfo {
     result_height: i32,
 }
 
-/// The Rust struct for the QObject
+/// Struct que representa em Rust o objeto acessado pelo código Qt.
 pub struct RenderThreadRust {
     render_info: Arc<Mutex<RenderInfo>>,
     color_map: Arc<Mutex<[u32; COLOR_MAP_SIZE]>>,
@@ -62,6 +65,7 @@ pub struct RenderThreadRust {
 }
 
 impl Default for RenderThreadRust {
+    /// Construtor padrão, preenche o mapa de cores.
     fn default() -> Self {
         let mut color_map = [0; COLOR_MAP_SIZE];
         for (i, color) in &mut color_map.iter_mut().enumerate() {
@@ -80,6 +84,7 @@ impl Default for RenderThreadRust {
 }
 
 impl RenderThreadRust {
+    /// Recebe um comprimento de onda e retorna uma cor no formato ARGB correspondente a ele.
     pub fn rbg_from_wave_length(wave: f64) -> u32 {
         let mut r = 0.;
         let mut g = 0.;
@@ -116,7 +121,10 @@ impl RenderThreadRust {
         g = (g * s).powf(0.8);
         b = (b * s).powf(0.8);
 
-        // Replicate a QRgb
+        // No código original é chamada a função qRgb, que cria um objeto QRgb, que é convertido em
+        // um inteiro sem sinal quando o método retorna. Como aqui o tipo QRgb não está disponível
+        // é criado um u32 diretamente e o funcionamento da função qRgb é replicado, conforme
+        // https://code.qt.io/cgit/qt/qtbase.git/tree/src/gui/painting/qrgb.h?h=6.11#n30
         0xFF000000
             | ((((r * 255.) as u32) & 0xFF) << 16)
             | ((((g * 255.) as u32) & 0xFF) << 8)
@@ -125,6 +133,7 @@ impl RenderThreadRust {
 }
 
 impl qobject::RenderThread {
+    /// Solicita a renderização de uma imagem, que será recebida por meio de um sinal emitido.
     pub fn render(
         self: Pin<&mut qobject::RenderThread>,
         center_x: f64,
@@ -134,8 +143,8 @@ impl qobject::RenderThread {
         result_height: i32,
         device_pixel_ratio: f64,
     ) {
-        // Drop lock after this
         {
+            // Travar o mutex para setar os parâmetros de renderização.
             let mut render_info = self
                 .render_info
                 .lock()
@@ -149,6 +158,7 @@ impl qobject::RenderThread {
             render_info.result_height = result_height;
         }
 
+        // Caso a thread já tenha sido criada, desestacionar e reiniciar ela, caso contrário a criar.
         if let Some(thread) = &self.thread {
             self.restart.store(true, Ordering::SeqCst);
             thread.thread().unpark();
@@ -157,7 +167,9 @@ impl qobject::RenderThread {
         }
     }
 
+    /// Cria a thread geradora dos fractais.
     fn run(self: Pin<&mut qobject::RenderThread>) {
+        // Dados a serem movidos para a closure da thread.
         let render_info = self.render_info.clone();
         let color_map = self.color_map.clone();
         let restart = self.restart.clone();
@@ -174,6 +186,7 @@ impl qobject::RenderThread {
                 let result_height;
 
                 {
+                    // Copiar parâmetros de renderização.
                     let render_info = render_info
                         .lock()
                         .unwrap_or_else(|error| error.into_inner());
@@ -188,6 +201,7 @@ impl qobject::RenderThread {
 
                 let half_width = result_width / 2;
                 let half_height = result_height / 2;
+
                 let mut image = QImage::from_width_height_and_format(
                     result_width,
                     result_height,
@@ -220,7 +234,7 @@ impl qobject::RenderThread {
                             let mut b1 = ay;
                             let mut num_iterations = 0;
 
-                            // do..while equivalent
+                            // Equivalente a um do..while
                             loop {
                                 num_iterations += 1;
                                 let a2 = (a1 * a1) - (b1 * b1) + ax;
@@ -272,6 +286,7 @@ impl qobject::RenderThread {
                             image.set_text(&QString::from("info"), &QString::from(&message));
                             let image = image.clone();
 
+                            // Usar thread do Qt para emitir o sinal no loop de eventos de lá.
                             let _ = qt_thread.queue(move |render_thread| {
                                 render_thread.rendered_image(&image, scale_factor);
                             });
