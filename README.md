@@ -1,6 +1,6 @@
 # Mandelbrot
-Este é um dos exemplos de uso do Qt, sendo um programa que gera fractais em uma thread separada e envia as imagens à interface gráfica
-conforme elas ficam prontas. Enquanto o [original](https://doc.qt.io/qt-6/qtcore-threads-mandelbrot-example.html) é completamente C++, 
+Este é um dos exemplos de uso do Qt, sendo um programa que gera fractais de Mandelbrot em uma thread separada e envia as imagens à interface
+gráfica conforme elas ficam prontas. Enquanto o [original](https://doc.qt.io/qt-6/qtcore-threads-mandelbrot-example.html) é completamente C++, 
 neste repositório o código da thread geradora é escrito em Rust.
 
 ## Arquivos
