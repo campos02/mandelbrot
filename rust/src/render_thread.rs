@@ -1,8 +1,10 @@
-use cxx_qt::Threading;
+use cxx_qt::{CxxQtType, Threading};
 use cxx_qt_lib::{QImage, QImageFormat, QString};
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
+use std::thread;
+use std::thread::JoinHandle;
 
 #[cxx_qt::bridge]
 pub mod qobject {
@@ -54,9 +56,9 @@ struct RenderInfo {
 pub struct RenderThreadRust {
     render_info: Arc<Mutex<RenderInfo>>,
     color_map: Arc<Mutex<[u32; COLOR_MAP_SIZE]>>,
-    running: Arc<AtomicBool>,
     restart: Arc<AtomicBool>,
     abort: Arc<AtomicBool>,
+    thread: Option<JoinHandle<()>>,
 }
 
 impl Default for RenderThreadRust {
@@ -69,9 +71,9 @@ impl Default for RenderThreadRust {
         Self {
             render_info: Default::default(),
             color_map: Arc::new(Mutex::new(color_map)),
-            running: Default::default(),
             restart: Default::default(),
             abort: Default::default(),
+            thread: None,
         }
     }
 }
@@ -143,24 +145,22 @@ impl qobject::RenderThread {
             render_info.result_height = result_height;
         }
 
-        if !self.running.load(Ordering::SeqCst) {
-            self.run();
-        } else {
+        if let Some(thread) = &self.thread {
             self.restart.store(true, Ordering::SeqCst);
+            thread.thread().unpark();
+        } else {
+            self.run();
         }
     }
 
     fn run(self: Pin<&mut qobject::RenderThread>) {
-        let running = self.running.clone();
         let render_info = self.render_info.clone();
         let color_map = self.color_map.clone();
         let restart = self.restart.clone();
         let abort = self.abort.clone();
         let qt_thread = self.qt_thread();
 
-        std::thread::spawn(move || {
-            running.store(true, Ordering::SeqCst);
-
+        self.rust_mut().thread = Some(thread::spawn(move || {
             loop {
                 let center_x;
                 let center_y;
@@ -275,9 +275,12 @@ impl qobject::RenderThread {
                     }
                 }
 
+                if !restart.load(Ordering::SeqCst) {
+                    thread::park();
+                }
+
                 restart.store(false, Ordering::SeqCst);
-                running.store(false, Ordering::SeqCst);
             }
-        });
+        }));
     }
 }
