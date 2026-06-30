@@ -16,7 +16,7 @@ e exibe os fractais gerados, além de reagir à interação do usuário solicita
 
 ## Compilação e execução
 > [!IMPORTANT]
-> Necessário ter Qt, CMake e Rust instalados, além do qmake na variável PATH.
+> Necessário ter Qt, CMake e Rust instalados, além do qmake na variável de ambiente PATH.
 
 Para compilar rodar os comandos:
 ``````
@@ -24,4 +24,4 @@ cmake -S . -B build
 cmake --build build
 ``````
 
-O executável estará em `build/examples/mandelbrot/mandelbrot`.
+O executável estará na pasta `build`.
